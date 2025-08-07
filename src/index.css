@@ -2,41 +2,63 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+/* VOID ∞ HYPERCORE Design System - ThriftPay Fintech Platform
 All colors MUST be HSL.
 */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Core VOID palette - Deep space blacks and electric purples */
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* HYPERCORE primary - Electric violet */
+    --primary: 271 76% 53%;
+    --primary-foreground: 0 0% 98%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Secondary - Dark void with subtle purple tint */
+    --secondary: 240 10% 10%;
+    --secondary-foreground: 0 0% 98%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* Muted - Darker grays for subtle elements */
+    --muted: 240 5% 15%;
+    --muted-foreground: 240 5% 64.9%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Accent - Cyan highlights for special elements */
+    --accent: 191 91% 36.5%;
+    --accent-foreground: 0 0% 98%;
 
+    /* Financial colors */
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 98%;
+    --warning: 47 96% 53%;
+    --warning-foreground: 240 10% 3.9%;
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    /* Interface elements */
+    --border: 240 8% 15%;
+    --input: 240 8% 15%;
+    --ring: 271 76% 53%;
 
-    --radius: 0.5rem;
+    /* VOID gradients */
+    --gradient-void: linear-gradient(135deg, hsl(240 10% 3.9%), hsl(240 8% 8%));
+    --gradient-hypercore: linear-gradient(135deg, hsl(271 76% 53%), hsl(191 91% 36.5%));
+    --gradient-financial: linear-gradient(90deg, hsl(271 76% 53%), hsl(142 76% 36%));
+
+    /* Glow effects */
+    --glow-primary: 0 0 20px hsl(271 76% 53% / 0.3);
+    --glow-accent: 0 0 20px hsl(191 91% 36.5% / 0.3);
+    --glow-success: 0 0 20px hsl(142 76% 36% / 0.3);
+
+    /* Spacing and sizing */
+    --radius: 0.75rem;
 
     --sidebar-background: 0 0% 98%;
 
@@ -100,6 +122,36 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-mono;
+  }
+}
+
+@layer components {
+  /* VOID HYPERCORE custom components */
+  .hypercore-glow {
+    box-shadow: var(--glow-primary);
+  }
+  
+  .void-gradient {
+    background: var(--gradient-void);
+  }
+  
+  .hypercore-gradient {
+    background: var(--gradient-hypercore);
+  }
+  
+  .financial-gradient {
+    background: var(--gradient-financial);
+  }
+  
+  .grid-pattern {
+    background-image: 
+      linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  
+  .text-glow {
+    text-shadow: 0 0 10px currentColor;
   }
 }
