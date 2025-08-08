@@ -4,6 +4,8 @@ import { Navigation } from "@/components/ui/navigation";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   Bot, 
   Send, 
@@ -18,7 +20,9 @@ import {
 import { useState } from "react";
 
 const AIAssistant = () => {
+  const { toast } = useToast();
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -49,8 +53,8 @@ const AIAssistant = () => {
     { icon: Lightbulb, text: "Money-saving tips", category: "Tips" }
   ];
 
-  const handleSendMessage = () => {
-    if (!message.trim()) return;
+  const handleSendMessage = async () => {
+    if (!message.trim() || loading) return;
 
     const newUserMessage = {
       id: messages.length + 1,
@@ -59,15 +63,45 @@ const AIAssistant = () => {
       timestamp: new Date().toISOString()
     };
 
-    const aiResponse = {
-      id: messages.length + 2,
-      type: 'assistant' as const,
-      content: `I understand you're asking about "${message}". As your HYPERCORE AI assistant, I'm analyzing your financial data through quantum algorithms. However, for real-time AI responses, you'll need to connect this platform to an AI service backend. In the meantime, I can provide pre-programmed financial insights and guidance.`,
-      timestamp: new Date().toISOString()
-    };
-
-    setMessages([...messages, newUserMessage, aiResponse]);
+    setMessages(prev => [...prev, newUserMessage]);
     setMessage("");
+    setLoading(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-chat', {
+        body: { 
+          message: message, 
+          history: messages.slice(-5) // Send last 5 messages for context
+        }
+      });
+
+      if (error) throw error;
+
+      const aiResponse = {
+        id: messages.length + 2,
+        type: 'assistant' as const,
+        content: data.response,
+        timestamp: new Date().toISOString()
+      };
+
+      setMessages(prev => [...prev, aiResponse]);
+    } catch (error) {
+      toast({
+        title: "HYPERCORE Error",
+        description: "Failed to connect to AI matrix. Please try again.",
+        variant: "destructive",
+      });
+      
+      const errorResponse = {
+        id: messages.length + 2,
+        type: 'assistant' as const,
+        content: "⚠️ HYPERCORE AI temporarily offline. Systems recalibrating...",
+        timestamp: new Date().toISOString()
+      };
+      setMessages(prev => [...prev, errorResponse]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleQuickPrompt = (prompt: string) => {

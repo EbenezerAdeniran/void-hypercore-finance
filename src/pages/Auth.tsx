@@ -1,3 +1,5 @@
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Navigation } from "@/components/ui/navigation";
@@ -5,9 +7,100 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { Zap, Shield, Mail, Lock, User, ArrowRight } from "lucide-react";
 
 const Auth = () => {
+  const { signIn, signUp, user } = useAuth();
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const [signInData, setSignInData] = useState({ email: "", password: "" });
+  const [signUpData, setSignUpData] = useState({ 
+    name: "", 
+    email: "", 
+    password: "", 
+    confirmPassword: "" 
+  });
+  const [loading, setLoading] = useState(false);
+
+  const from = location.state?.from?.pathname || "/dashboard";
+
+  useEffect(() => {
+    if (user) {
+      navigate(from, { replace: true });
+    }
+  }, [user, navigate, from]);
+
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!signInData.email || !signInData.password) {
+      toast({
+        title: "Missing credentials",
+        description: "Please enter both email and password",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    const { error } = await signIn(signInData.email, signInData.password);
+    
+    if (error) {
+      toast({
+        title: "Authentication failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Welcome to HYPERCORE",
+        description: "Access granted to the void",
+      });
+    }
+    setLoading(false);
+  };
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!signUpData.name || !signUpData.email || !signUpData.password) {
+      toast({
+        title: "Missing information",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (signUpData.password !== signUpData.confirmPassword) {
+      toast({
+        title: "Password mismatch",
+        description: "Passwords do not match",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    const { error } = await signUp(signUpData.email, signUpData.password, signUpData.name);
+    
+    if (error) {
+      toast({
+        title: "Registration failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "HYPERCORE initialized",
+        description: "Check your email to verify your account",
+      });
+    }
+    setLoading(false);
+  };
+
   return (
     <div className="min-h-screen void-gradient">
       <div className="fixed inset-0 grid-pattern opacity-30 pointer-events-none" />
@@ -40,36 +133,44 @@ const Auth = () => {
                 </TabsList>
 
                 <TabsContent value="signin" className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input 
-                        id="email" 
-                        type="email" 
-                        placeholder="your@email.com"
-                        className="pl-10"
-                      />
+                  <form onSubmit={handleSignIn} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                          id="email" 
+                          type="email" 
+                          placeholder="your@email.com"
+                          className="pl-10"
+                          value={signInData.email}
+                          onChange={(e) => setSignInData(prev => ({ ...prev, email: e.target.value }))}
+                          required
+                        />
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input 
-                        id="password" 
-                        type="password" 
-                        placeholder="••••••••"
-                        className="pl-10"
-                      />
+                    <div className="space-y-2">
+                      <Label htmlFor="password">Password</Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                          id="password" 
+                          type="password" 
+                          placeholder="••••••••"
+                          className="pl-10"
+                          value={signInData.password}
+                          onChange={(e) => setSignInData(prev => ({ ...prev, password: e.target.value }))}
+                          required
+                        />
+                      </div>
                     </div>
-                  </div>
 
-                  <Button className="w-full hypercore-glow mt-6">
-                    Access Dashboard
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
+                    <Button type="submit" className="w-full hypercore-glow mt-6" disabled={loading}>
+                      {loading ? "Accessing..." : "Access Dashboard"}
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </form>
 
                   <Button variant="ghost" className="w-full text-sm">
                     Forgot your access codes?
@@ -77,66 +178,80 @@ const Auth = () => {
                 </TabsContent>
 
                 <TabsContent value="signup" className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Full Name</Label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input 
-                        id="name" 
-                        type="text" 
-                        placeholder="John Doe"
-                        className="pl-10"
-                      />
+                  <form onSubmit={handleSignUp} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Full Name</Label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                          id="name" 
+                          type="text" 
+                          placeholder="John Doe"
+                          className="pl-10"
+                          value={signUpData.name}
+                          onChange={(e) => setSignUpData(prev => ({ ...prev, name: e.target.value }))}
+                          required
+                        />
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-email">Email</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input 
-                        id="signup-email" 
-                        type="email" 
-                        placeholder="your@email.com"
-                        className="pl-10"
-                      />
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-email">Email</Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                          id="signup-email" 
+                          type="email" 
+                          placeholder="your@email.com"
+                          className="pl-10"
+                          value={signUpData.email}
+                          onChange={(e) => setSignUpData(prev => ({ ...prev, email: e.target.value }))}
+                          required
+                        />
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-password">Password</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input 
-                        id="signup-password" 
-                        type="password" 
-                        placeholder="••••••••"
-                        className="pl-10"
-                      />
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-password">Password</Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                          id="signup-password" 
+                          type="password" 
+                          placeholder="••••••••"
+                          className="pl-10"
+                          value={signUpData.password}
+                          onChange={(e) => setSignUpData(prev => ({ ...prev, password: e.target.value }))}
+                          required
+                        />
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="confirm-password">Confirm Password</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input 
-                        id="confirm-password" 
-                        type="password" 
-                        placeholder="••••••••"
-                        className="pl-10"
-                      />
+                    <div className="space-y-2">
+                      <Label htmlFor="confirm-password">Confirm Password</Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                          id="confirm-password" 
+                          type="password" 
+                          placeholder="••••••••"
+                          className="pl-10"
+                          value={signUpData.confirmPassword}
+                          onChange={(e) => setSignUpData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                          required
+                        />
+                      </div>
                     </div>
-                  </div>
 
-                  <Button className="w-full hypercore-glow mt-6">
-                    Initialize HYPERCORE
-                    <Zap className="ml-2 h-4 w-4" />
-                  </Button>
+                    <Button type="submit" className="w-full hypercore-glow mt-6" disabled={loading}>
+                      {loading ? "Initializing..." : "Initialize HYPERCORE"}
+                      <Zap className="ml-2 h-4 w-4" />
+                    </Button>
 
-                  <p className="text-xs text-muted-foreground text-center">
-                    By signing up, you agree to enter the VOID ∞ HYPERCORE
-                  </p>
+                    <p className="text-xs text-muted-foreground text-center">
+                      By signing up, you agree to enter the VOID ∞ HYPERCORE
+                    </p>
+                  </form>
                 </TabsContent>
               </Tabs>
 
