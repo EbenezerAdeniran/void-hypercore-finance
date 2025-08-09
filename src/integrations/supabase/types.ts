@@ -149,6 +149,51 @@ export type Database = {
         }
         Relationships: []
       }
+      transfers: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string | null
+          id: string
+          recipient_name: string | null
+          reference: string | null
+          scheduled_date: string | null
+          status: string
+          to_account_number: string
+          to_bank_name: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          recipient_name?: string | null
+          reference?: string | null
+          scheduled_date?: string | null
+          status?: string
+          to_account_number: string
+          to_bank_name?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          recipient_name?: string | null
+          reference?: string | null
+          scheduled_date?: string | null
+          status?: string
+          to_account_number?: string
+          to_bank_name?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
