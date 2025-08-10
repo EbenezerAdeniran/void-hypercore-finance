@@ -11,40 +11,47 @@ import {
   Filter,
   Download,
   CreditCard,
-  Zap,
   Calendar,
   DollarSign
 } from "lucide-react";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 const Transactions = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
+  const { user } = useAuth();
 
-  const mockTransactions = [
-    { id: 1, type: 'credit', amount: 2500.00, description: 'Salary Deposit - TechCorp', date: '2024-01-15', time: '09:30 AM', category: 'Income', status: 'completed' },
-    { id: 2, type: 'debit', amount: 45.99, description: 'Whole Foods Market', date: '2024-01-14', time: '06:45 PM', category: 'Food & Dining', status: 'completed' },
-    { id: 3, type: 'debit', amount: 120.00, description: 'ConEd Electric Bill', date: '2024-01-13', time: '02:15 PM', category: 'Utilities', status: 'completed' },
-    { id: 4, type: 'credit', amount: 500.00, description: 'Freelance Payment - WebDesign', date: '2024-01-12', time: '11:20 AM', category: 'Income', status: 'completed' },
-    { id: 5, type: 'debit', amount: 89.99, description: 'Netflix Subscription', date: '2024-01-11', time: '03:00 PM', category: 'Entertainment', status: 'completed' },
-    { id: 6, type: 'debit', amount: 250.00, description: 'Car Insurance Payment', date: '2024-01-10', time: '10:45 AM', category: 'Insurance', status: 'completed' },
-    { id: 7, type: 'credit', amount: 1200.00, description: 'Investment Dividend', date: '2024-01-09', time: '12:00 PM', category: 'Investment', status: 'completed' },
-    { id: 8, type: 'debit', amount: 75.50, description: 'Gas Station Fill-up', date: '2024-01-08', time: '08:30 AM', category: 'Transportation', status: 'completed' },
-  ];
+  const { data: txs = [], isLoading } = useQuery({
+    queryKey: ["transactions", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("*")
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
-  const filteredTransactions = mockTransactions.filter(transaction => {
-    const matchesSearch = transaction.description.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredTransactions = txs.filter((transaction) => {
+    const desc = (transaction.description || "").toLowerCase();
+    const matchesSearch = desc.includes(searchTerm.toLowerCase());
     const matchesFilter = filterType === 'all' || transaction.type === filterType;
     return matchesSearch && matchesFilter;
   });
 
-  const totalCredit = mockTransactions
-    .filter(t => t.type === 'credit')
-    .reduce((sum, t) => sum + t.amount, 0);
+  const totalCredit = txs
+    .filter((t) => t.type === 'credit')
+    .reduce((sum, t) => sum + Number(t.amount), 0);
 
-  const totalDebit = mockTransactions
-    .filter(t => t.type === 'debit')
-    .reduce((sum, t) => sum + t.amount, 0);
+  const totalDebit = txs
+    .filter((t) => t.type === 'debit')
+    .reduce((sum, t) => sum + Number(t.amount), 0);
 
   return (
     <div className="min-h-screen void-gradient">
@@ -148,7 +155,7 @@ const Transactions = () => {
             <CardHeader>
               <CardTitle>Recent Transactions</CardTitle>
               <CardDescription>
-                Showing {filteredTransactions.length} of {mockTransactions.length} transactions
+                Showing {filteredTransactions.length} of {txs.length} transactions
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -172,9 +179,9 @@ const Transactions = () => {
                         <div className="flex items-center space-x-4 text-sm text-muted-foreground mt-1">
                           <div className="flex items-center space-x-1">
                             <Calendar className="h-3 w-3" />
-                            <span>{transaction.date}</span>
+                            <span>{new Date(transaction.created_at as string).toLocaleDateString()}</span>
                           </div>
-                          <span>{transaction.time}</span>
+                          <span>{new Date(transaction.created_at as string).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                           <Badge variant="outline" className="text-xs">
                             {transaction.category}
                           </Badge>
@@ -191,7 +198,7 @@ const Transactions = () => {
                         variant="secondary" 
                         className="text-xs mt-1"
                       >
-                        {transaction.status}
+                        completed
                       </Badge>
                     </div>
                   </div>
