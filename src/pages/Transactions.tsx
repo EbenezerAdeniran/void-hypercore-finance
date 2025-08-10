@@ -192,7 +192,7 @@ const Transactions = () => {
                       <p className={`text-lg font-bold ${
                         transaction.type === 'credit' ? 'text-success' : 'text-destructive'
                       }`}>
-                        {transaction.type === 'credit' ? '+' : '-'}${transaction.amount.toFixed(2)}
+                        {transaction.type === 'credit' ? '+' : '-'}${Number(transaction.amount).toFixed(2)}
                       </p>
                       <Badge 
                         variant="secondary" 

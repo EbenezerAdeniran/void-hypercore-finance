@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -88,16 +89,17 @@ const Savings = () => {
   const [depositOpen, setDepositOpen] = useState(false);
   const [activeGoal, setActiveGoal] = useState<Tables<"savings_goals"> | null>(null);
   const [depositAmount, setDepositAmount] = useState<number | "">("");
+  const [depositGoalId, setDepositGoalId] = useState<string>("");
 
   const depositMutation = useMutation({
-    mutationFn: async () => {
-      if (!user || !activeGoal) throw new Error("Missing data");
-      const amount = Number(depositAmount || 0);
+    mutationFn: async ({ goal, amount }: { goal: Tables<"savings_goals">; amount: number }) => {
+      if (!user) throw new Error("Not authenticated");
+      if (!goal) throw new Error("Select a goal");
       if (amount <= 0) throw new Error("Enter a valid amount");
       const { error: upErr } = await supabase
         .from("savings_goals")
-        .update({ current_amount: (activeGoal.current_amount || 0) + amount })
-        .eq("id", activeGoal.id)
+        .update({ current_amount: Number(goal.current_amount || 0) + amount })
+        .eq("id", goal.id)
         .eq("user_id", user.id);
       if (upErr) throw upErr;
       const { error: txErr } = await supabase.from("transactions").insert({
@@ -105,7 +107,7 @@ const Savings = () => {
         amount,
         type: "credit",
         category: "savings",
-        description: `Deposit to "${activeGoal.title}"`,
+        description: `Deposit to "${goal.title}"`,
         date: new Date().toISOString().slice(0,10),
       });
       if (txErr) throw txErr;
@@ -115,6 +117,7 @@ const Savings = () => {
       setDepositOpen(false);
       setDepositAmount("");
       setActiveGoal(null);
+      setDepositGoalId("");
       toast({ title: "Deposit successful", description: "Funds added to your goal." });
     },
     onError: (e: any) => {
@@ -204,6 +207,60 @@ const Savings = () => {
                   <TrendingUp className="h-4 w-4 mr-2" />
                   Auto-Save Setup
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+          
+          {/* Deposit to Savings */}
+          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle>Deposit to Savings</CardTitle>
+              <CardDescription>Move funds into one of your goals</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="deposit-goal">Choose Goal</Label>
+                  <Select value={depositGoalId} onValueChange={setDepositGoalId}>
+                    <SelectTrigger id="deposit-goal">
+                      <SelectValue placeholder="Select a goal" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {goals.map((g) => (
+                        <SelectItem key={g.id} value={g.id}>
+                          {g.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="deposit-amount-inline">Amount</Label>
+                  <Input
+                    id="deposit-amount-inline"
+                    type="number"
+                    placeholder="100"
+                    value={depositAmount}
+                    onChange={(e)=>setDepositAmount(e.target.value === "" ? "" : Number(e.target.value))}
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    className="w-full"
+                    onClick={() => {
+                      const goal = goals.find((g) => g.id === depositGoalId);
+                      const amount = Number(depositAmount || 0);
+                      if (!goal) {
+                        toast({ title: "Select a goal", description: "Please choose a savings goal.", variant: "destructive" as any });
+                        return;
+                      }
+                      depositMutation.mutate({ goal, amount });
+                    }}
+                    disabled={depositMutation.isPending}
+                  >
+                    {depositMutation.isPending ? "Processing..." : "Deposit"}
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -331,7 +388,13 @@ const Savings = () => {
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={()=>setDepositOpen(false)}>Cancel</Button>
-                <Button onClick={()=>depositMutation.mutate()} disabled={depositMutation.isPending}>
+                <Button 
+                  onClick={() => {
+                    if (!activeGoal) return;
+                    depositMutation.mutate({ goal: activeGoal, amount: Number(depositAmount || 0) });
+                  }}
+                  disabled={depositMutation.isPending}
+                >
                   {depositMutation.isPending ? "Processing..." : "Add Funds"}
                 </Button>
               </DialogFooter>
