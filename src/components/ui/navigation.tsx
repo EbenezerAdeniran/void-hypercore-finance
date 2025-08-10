@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { User, Settings, Home, CreditCard, Target, TrendingUp, Zap, Bot } from "lucide-react";
+import { User, Settings, Home, CreditCard, Target, TrendingUp, Zap, Bot, Send } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
 interface NavigationProps {
@@ -47,6 +47,16 @@ export function Navigation({ className }: NavigationProps) {
           <Link to="/transactions">
             <CreditCard className="h-4 w-4 mr-2" />
             Transactions
+          </Link>
+        </Button>
+        <Button 
+          variant={isActive('/transfers') ? 'default' : 'ghost'} 
+          className={isActive('/transfers') ? 'hypercore-glow' : 'text-foreground hover:text-primary'}
+          asChild
+        >
+          <Link to="/transfers">
+            <Send className="h-4 w-4 mr-2" />
+            Transfers
           </Link>
         </Button>
         <Button 
