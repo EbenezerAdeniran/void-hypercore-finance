@@ -58,7 +58,9 @@ export type Database = {
       }
       profiles: {
         Row: {
+          account_number: string | null
           avatar_url: string | null
+          balance: number
           created_at: string
           full_name: string | null
           id: string
@@ -66,7 +68,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          account_number?: string | null
           avatar_url?: string | null
+          balance?: number
           created_at?: string
           full_name?: string | null
           id?: string
@@ -74,7 +78,9 @@ export type Database = {
           user_id: string
         }
         Update: {
+          account_number?: string | null
           avatar_url?: string | null
+          balance?: number
           created_at?: string
           full_name?: string | null
           id?: string
@@ -199,7 +205,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      perform_transfer: {
+        Args: {
+          p_sender_id: string
+          p_recipient_account_number: string
+          p_amount: number
+          p_note: string
+        }
+        Returns: {
+          transaction_id: string
+          transfer_id: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

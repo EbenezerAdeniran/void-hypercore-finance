@@ -67,7 +67,8 @@ const Transfers = () => {
 
   const isValid = useMemo(() => {
     const amt = Number(form.amount);
-    return form.to_account_number.trim().length >= 6 && !isNaN(amt) && amt > 0;
+    const acct = form.to_account_number.trim();
+    return /^\d{6,}$/.test(acct) && !isNaN(amt) && amt > 0;
   }, [form.amount, form.to_account_number]);
 
   const { data, isLoading, refetch } = useQuery({
@@ -85,6 +86,20 @@ const Transfers = () => {
     enabled: !!user?.id,
   });
 
+  const { data: profile, isLoading: isProfileLoading, refetch: refetchProfile } = useQuery({
+    queryKey: ["profile-balance", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("balance, full_name, account_number")
+        .eq("user_id", user?.id ?? "")
+        .maybeSingle();
+      if (error) throw error;
+      return data as { balance: number | null; full_name: string | null; account_number: string | null } | null;
+    },
+    enabled: !!user?.id,
+  });
+
   const onSubmit = async () => {
     if (!user?.id) return;
     if (!isValid) {
@@ -93,24 +108,29 @@ const Transfers = () => {
     }
 
     const amt = Number(form.amount);
-    const { error } = await supabase.from("transfers").insert([
-      {
-        user_id: user.id,
-        amount: amt,
-        to_account_number: form.to_account_number.trim(),
-        to_bank_name: form.to_bank_name || null,
-        recipient_name: form.recipient_name || null,
-        description: form.description || null,
-        reference: form.reference || null,
-        status: "pending",
-        scheduled_date: form.scheduled_date || null,
-      },
-    ]);
+    const currentBalance = Number((profile as any)?.balance ?? 0);
+    if (amt > currentBalance) {
+      toast({ title: "Insufficient funds", description: "Your balance is not enough for this transfer." });
+      return;
+    }
 
-    if (error) {
-      toast({ title: "Transfer failed", description: error.message });
+    const { data: resp, error } = await supabase.functions.invoke("transfer", {
+      body: {
+        sender_id: user.id,
+        recipient_account_number: form.to_account_number.trim(),
+        amount: amt,
+        note: form.description || null,
+      },
+    });
+
+    if (error || !(resp as any)?.success) {
+      const message = (error as any)?.message || (resp as any)?.error || "Please try again.";
+      toast({ title: "Transfer failed", description: message });
     } else {
-      toast({ title: "Transfer created", description: "Your transfer has been scheduled." });
+      toast({
+        title: "Transfer completed",
+        description: `Transaction ID: ${(resp as any)?.transaction_id || "—"}`,
+      });
       setForm({
         recipient_name: "",
         to_account_number: "",
@@ -121,6 +141,7 @@ const Transfers = () => {
         scheduled_date: "",
       });
       refetch();
+      refetchProfile();
     }
   };
 
