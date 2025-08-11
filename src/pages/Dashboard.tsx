@@ -18,17 +18,103 @@ import {
   PiggyBank,
   Banknote
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { format } from "date-fns";
 
 const Dashboard = () => {
   const [balanceVisible, setBalanceVisible] = useState(true);
 
-  const mockTransactions = [
-    { id: 1, type: 'credit', amount: 2500, description: 'Salary Deposit', date: '2024-01-15', category: 'Income' },
-    { id: 2, type: 'debit', amount: 45.99, description: 'Grocery Store', date: '2024-01-14', category: 'Food' },
-    { id: 3, type: 'debit', amount: 120.00, description: 'Electric Bill', date: '2024-01-13', category: 'Utilities' },
-    { id: 4, type: 'credit', amount: 500.00, description: 'Freelance Payment', date: '2024-01-12', category: 'Income' },
-  ];
+  const { data: recentTransactions } = useQuery<any[]>({
+    queryKey: ['transactions', 'recent'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('id, description, created_at, amount, type, category')
+        .order('created_at', { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const { data: allTransactions } = useQuery<any[]>({
+    queryKey: ['transactions','all'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('amount, type');
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const totalBalance = useMemo(() => {
+    if (!allTransactions) return 0;
+    return allTransactions.reduce((sum: number, t: any) => {
+      const amt = typeof t.amount === 'number' ? t.amount : parseFloat(t.amount);
+      const type = (t.type ?? '').toLowerCase();
+      const isIncome = type === 'income' || type === 'credit';
+      return sum + (isIncome ? amt : -amt);
+    }, 0);
+  }, [allTransactions]);
+
+  const { data: savingsGoals } = useQuery<any[]>({
+    queryKey: ['savings_goals'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('savings_goals')
+        .select('id, title, current_amount, target_amount, created_at, updated_at');
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const totalSavings = useMemo(() => {
+    if (!savingsGoals) return 0;
+    return savingsGoals.reduce((sum: number, g: any) => {
+      const amt = typeof g.current_amount === 'number' ? g.current_amount : parseFloat(g.current_amount);
+      return sum + (isNaN(amt) ? 0 : amt);
+    }, 0);
+  }, [savingsGoals]);
+
+  const totalSavingsTarget = useMemo(() => {
+    if (!savingsGoals) return 0;
+    return savingsGoals.reduce((sum: number, g: any) => {
+      const amt = typeof g.target_amount === 'number' ? g.target_amount : parseFloat(g.target_amount);
+      return sum + (isNaN(amt) ? 0 : amt);
+    }, 0);
+  }, [savingsGoals]);
+
+  const savingsPercent = totalSavingsTarget > 0 ? Math.min(100, (totalSavings / totalSavingsTarget) * 100) : 0;
+
+  const { data: loans } = useQuery<any[]>({
+    queryKey: ['loans'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('loans')
+        .select('id, status, amount');
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const activeLoansAmount = useMemo(() => {
+    if (!loans) return 0;
+    const activeStatuses = new Set(['approved', 'active', 'pending']);
+    return loans.reduce((sum: number, l: any) => {
+      const status = (l.status ?? '').toLowerCase();
+      if (!activeStatuses.has(status)) return sum;
+      const amt = typeof l.amount === 'number' ? l.amount : parseFloat(l.amount);
+      return sum + (isNaN(amt) ? 0 : amt);
+    }, 0);
+  }, [loans]);
+
+  useEffect(() => {
+    document.title = 'Dashboard | HYPERCORE Finance';
+  }, []);
+
 
   return (
     <div className="min-h-screen void-gradient">
@@ -65,11 +151,11 @@ const Dashboard = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-glow">
-                  {balanceVisible ? '$12,847.32' : '••••••••'}
+                  {balanceVisible ? totalBalance.toLocaleString('en-US', { style: 'currency', currency: 'USD' }) : '••••••••'}
                 </div>
                 <div className="flex items-center space-x-2 text-sm text-success mt-2">
                   <ArrowUp className="h-4 w-4" />
-                  <span>+2.5% from last month</span>
+                  <span>Live balance from transactions</span>
                 </div>
               </CardContent>
             </Card>
@@ -80,9 +166,11 @@ const Dashboard = () => {
                 <PiggyBank className="h-4 w-4 text-accent" />
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-accent">$3,420.00</div>
-                <Progress value={68} className="mt-2" />
-                <p className="text-xs text-muted-foreground mt-2">68% of $5,000 goal</p>
+                <div className="text-3xl font-bold text-accent">
+                  {totalSavings.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                </div>
+                <Progress value={savingsPercent} className="mt-2" />
+                <p className="text-xs text-muted-foreground mt-2">{Math.round(savingsPercent)}% of {totalSavingsTarget.toLocaleString('en-US', { style: 'currency', currency: 'USD' })} total goals</p>
               </CardContent>
             </Card>
 
@@ -92,8 +180,10 @@ const Dashboard = () => {
                 <Banknote className="h-4 w-4 text-warning" />
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-warning">$8,240.00</div>
-                <p className="text-xs text-muted-foreground mt-2">Next payment: $420 due Jan 30</p>
+                <div className="text-3xl font-bold text-warning">
+                  {activeLoansAmount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">Active loans total</p>
               </CardContent>
             </Card>
           </div>
@@ -136,32 +226,39 @@ const Dashboard = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {mockTransactions.map((transaction) => (
-                    <div key={transaction.id} className="flex items-center justify-between p-3 rounded-lg border border-border/30 bg-muted/20">
-                      <div className="flex items-center space-x-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                          transaction.type === 'credit' ? 'bg-success/20' : 'bg-destructive/20'
-                        }`}>
-                          {transaction.type === 'credit' ? 
-                            <ArrowUp className="h-4 w-4 text-success" /> : 
-                            <ArrowDown className="h-4 w-4 text-destructive" />
-                          }
+                  {recentTransactions && recentTransactions.length > 0 ? (
+                    recentTransactions.map((tx: any) => {
+                      const type = (tx.type ?? '').toLowerCase();
+                      const isCredit = type === 'income' || type === 'credit';
+                      const amount = typeof tx.amount === 'number' ? tx.amount : parseFloat(tx.amount);
+                      return (
+                        <div key={tx.id} className="flex items-center justify-between p-3 rounded-lg border border-border/30 bg-muted/20">
+                          <div className="flex items-center space-x-3">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isCredit ? 'bg-success/20' : 'bg-destructive/20'}`}>
+                              {isCredit ? (
+                                <ArrowUp className="h-4 w-4 text-success" />
+                              ) : (
+                                <ArrowDown className="h-4 w-4 text-destructive" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-medium">{tx.description || 'No description'}</p>
+                              <p className="text-sm text-muted-foreground">{format(new Date(tx.created_at), 'PP p')}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className={`font-bold ${isCredit ? 'text-success' : 'text-destructive'}`}>
+                              {isCredit ? '+' : '-'}
+                              {Math.abs(amount).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                            </p>
+                            <p className="text-xs text-muted-foreground">{tx.category}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium">{transaction.description}</p>
-                          <p className="text-sm text-muted-foreground">{transaction.date}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className={`font-bold ${
-                          transaction.type === 'credit' ? 'text-success' : 'text-destructive'
-                        }`}>
-                          {transaction.type === 'credit' ? '+' : '-'}${transaction.amount.toFixed(2)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">{transaction.category}</p>
-                      </div>
-                    </div>
-                  ))}
+                      );
+                    })
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No recent transactions</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -174,29 +271,27 @@ const Dashboard = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Emergency Fund</span>
-                      <span>$3,420 / $5,000</span>
-                    </div>
-                    <Progress value={68} className="h-2" />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Vacation Fund</span>
-                      <span>$1,250 / $3,000</span>
-                    </div>
-                    <Progress value={42} className="h-2" />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>New Car</span>
-                      <span>$8,900 / $25,000</span>
-                    </div>
-                    <Progress value={36} className="h-2" />
-                  </div>
+                  {savingsGoals && savingsGoals.length > 0 ? (
+                    savingsGoals.map((g: any) => {
+                      const current = typeof g.current_amount === 'number' ? g.current_amount : parseFloat(g.current_amount);
+                      const target = typeof g.target_amount === 'number' ? g.target_amount : parseFloat(g.target_amount);
+                      const percent = target > 0 ? Math.min(100, (current / target) * 100) : 0;
+                      return (
+                        <div key={g.id} className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span>{g.title}</span>
+                            <span>
+                              {current.toLocaleString('en-US', { style: 'currency', currency: 'USD' })} /{' '}
+                              {target.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                            </span>
+                          </div>
+                          <Progress value={percent} className="h-2" />
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No savings goals yet</p>
+                  )}
 
                   <Button variant="outline" className="w-full mt-4">
                     <Plus className="h-4 w-4 mr-2" />
