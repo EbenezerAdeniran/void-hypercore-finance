@@ -14,6 +14,8 @@ import Loans from "./pages/Loans";
 import Auth from "./pages/Auth";
 import AIAssistant from "./pages/AIAssistant";
 import NotFound from "./pages/NotFound";
+import Settings from "./pages/Settings";
+import Admin from "./pages/Admin";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +35,8 @@ const App = () => (
             <Route path="/savings" element={<ProtectedRoute><Savings /></ProtectedRoute>} />
             <Route path="/loans" element={<ProtectedRoute><Loans /></ProtectedRoute>} />
             <Route path="/ai-assistant" element={<ProtectedRoute><AIAssistant /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
