@@ -3,12 +3,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Navigation } from "@/components/ui/navigation";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { 
-  DollarSign, 
-  TrendingUp, 
-  Target, 
-  CreditCard, 
-  ArrowUp, 
+import {
+  DollarSign,
+  TrendingUp,
+  Target,
+  CreditCard,
+  ArrowUp,
   ArrowDown,
   Eye,
   EyeOff,
@@ -22,9 +22,37 @@ import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
 
 const Dashboard = () => {
   const [balanceVisible, setBalanceVisible] = useState(true);
+  const [depositOpen, setDepositOpen] = useState(false);
+  const [depositAmount, setDepositAmount] = useState<string>("");
+  const [depositMethod, setDepositMethod] = useState<"bank_transfer" | "card" | "mobile_money">("bank_transfer");
+  const [depositResult, setDepositResult] = useState<any>(null);
+  const { toast } = useToast();
+
+  const handleDepositSubmit = async () => {
+    const amountNum = Number(depositAmount);
+    if (!amountNum || amountNum <= 0) {
+      toast({ title: "Invalid amount", description: "Enter an amount greater than 0" });
+      return;
+    }
+    try {
+      const { data, error } = await supabase.functions.invoke('deposit', {
+        body: { amount: amountNum, method: depositMethod },
+      });
+      if (error) throw error;
+      setDepositResult(data);
+      toast({ title: "Deposit initialized", description: `Reference ${data?.reference || ''}` });
+    } catch (e: any) {
+      toast({ title: "Deposit failed", description: e?.message || 'Please try again' });
+    }
+  };
 
   const { data: recentTransactions } = useQuery<any[]>({
     queryKey: ['transactions', 'recent'],
@@ -200,7 +228,7 @@ const Dashboard = () => {
                   <Send className="h-6 w-6" />
                   <span>Send Money</span>
                 </Button>
-                <Button variant="outline" className="h-24 flex-col space-y-2">
+                <Button variant="outline" className="h-24 flex-col space-y-2" onClick={() => setDepositOpen(true)}>
                   <Wallet className="h-6 w-6" />
                   <span>Add Funds</span>
                 </Button>
