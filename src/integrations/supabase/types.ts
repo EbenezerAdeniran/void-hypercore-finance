@@ -299,6 +299,14 @@ export type Database = {
           new_balance: number
         }[]
       }
+      find_user_by_account_number: {
+        Args: { p_account_number: string }
+        Returns: {
+          user_id: string
+          full_name: string
+          account_number: string
+        }[]
+      }
       has_role: {
         Args: {
           _user_id: string

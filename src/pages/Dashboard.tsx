@@ -4,6 +4,7 @@ import { Navigation } from "@/components/ui/navigation";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { PaystackDepositModal } from "@/components/PaystackDepositModal";
+import { TransferModal } from "@/components/TransferModal";
 import {
   DollarSign,
   TrendingUp,
@@ -29,6 +30,7 @@ import { useAuth } from "@/hooks/useAuth";
 const Dashboard = () => {
   const [balanceVisible, setBalanceVisible] = useState(true);
   const [depositModalOpen, setDepositModalOpen] = useState(false);
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -210,7 +212,7 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <Button className="h-24 flex-col space-y-2 hypercore-glow">
+                <Button className="h-24 flex-col space-y-2 hypercore-glow" onClick={() => setTransferModalOpen(true)}>
                   <Send className="h-6 w-6" />
                   <span>Send Money</span>
                 </Button>
@@ -324,6 +326,21 @@ const Dashboard = () => {
           queryClient.invalidateQueries({ queryKey: ["profile", user?.id] });
           queryClient.invalidateQueries({ queryKey: ["transactions", user?.id] });
         }}
+      />
+
+      <TransferModal
+        open={transferModalOpen}
+        onClose={() => setTransferModalOpen(false)}
+        onSuccess={() => {
+          // Refetch user profile data
+          queryClient.invalidateQueries({ queryKey: ["profile", user?.id] });
+          queryClient.invalidateQueries({ queryKey: ["transactions", user?.id] });
+          toast({
+            title: "Transfer completed",
+            description: "Your transfer has been processed successfully",
+          });
+        }}
+        userBalance={profile?.balance || 0}
       />
     </div>
   );

@@ -10,7 +10,9 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { CalendarDays, Clock, Send } from "lucide-react";
+import { CalendarDays, Clock, Send, Wallet, Plus } from "lucide-react";
+import { TransferModal } from "@/components/TransferModal";
+import { TransferHistory } from "@/components/TransferHistory";
 
 interface Transfer {
   id: string;
@@ -29,6 +31,7 @@ interface Transfer {
 const Transfers = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
 
   // SEO basics
   useEffect(() => {
@@ -153,109 +156,84 @@ const Transfers = () => {
 
       <main className="container mx-auto px-6 pb-24">
         <section className="mt-6">
-          <h1 className="text-3xl font-bold tracking-tight">Transfers</h1>
-          <p className="text-muted-foreground mt-1 max-w-2xl">
-            Create and track your money transfers. All transfers are protected by RLS and only visible to you.
-          </p>
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Transfers</h1>
+              <p className="text-muted-foreground mt-1 max-w-2xl">
+                Create and track your money transfers. All transfers are protected by RLS and only visible to you.
+              </p>
+            </div>
+            <Button onClick={() => setTransferModalOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              New Transfer
+            </Button>
+          </div>
         </section>
 
-        <section className="grid gap-6 md:grid-cols-2 mt-8">
+        {/* Quick Stats */}
+        <section className="grid gap-6 md:grid-cols-3 mt-8">
           <Card className="border-muted/40">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Send className="h-5 w-5 text-primary" /> New transfer
-              </CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Available Balance</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="recipient_name">Recipient name</Label>
-                  <Input id="recipient_name" placeholder="e.g. Jane Doe" value={form.recipient_name} onChange={(e) => setForm((f) => ({ ...f, recipient_name: e.target.value }))} />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="to_account_number">Account number *</Label>
-                  <Input id="to_account_number" placeholder="e.g. 0123456789" value={form.to_account_number} onChange={(e) => setForm((f) => ({ ...f, to_account_number: e.target.value }))} />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="to_bank_name">Bank name</Label>
-                  <Input id="to_bank_name" placeholder="e.g. Thrift Bank" value={form.to_bank_name} onChange={(e) => setForm((f) => ({ ...f, to_bank_name: e.target.value }))} />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="amount">Amount *</Label>
-                    <Input id="amount" type="number" min="0" step="0.01" placeholder="0.00" value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))} />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="scheduled_date">Scheduled date</Label>
-                    <div className="relative">
-                      <Input id="scheduled_date" type="date" value={form.scheduled_date} onChange={(e) => setForm((f) => ({ ...f, scheduled_date: e.target.value }))} />
-                      <CalendarDays className="h-4 w-4 text-muted-foreground absolute right-3 top-3 pointer-events-none" />
-                    </div>
-                  </div>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="reference">Reference</Label>
-                  <Input id="reference" placeholder="e.g. INV-1024" value={form.reference} onChange={(e) => setForm((f) => ({ ...f, reference: e.target.value }))} />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Input id="description" placeholder="Optional note" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
-                </div>
-                <Button className="mt-2" onClick={onSubmit} disabled={!isValid || !user?.id}>
-                  Create transfer
-                </Button>
+              <div className="flex items-center gap-2">
+                <Wallet className="h-5 w-5 text-muted-foreground" />
+                <span className="text-2xl font-bold">
+                  ₦{(profile?.balance || 0).toLocaleString()}
+                </span>
               </div>
             </CardContent>
           </Card>
 
           <Card className="border-muted/40">
-            <CardHeader>
-              <CardTitle>Recent transfers</CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Your Account</CardTitle>
             </CardHeader>
             <CardContent>
-              {isLoading ? (
-                <p className="text-muted-foreground">Loading transfers…</p>
-              ) : !data || data.length === 0 ? (
-                <p className="text-muted-foreground">No transfers yet. Create your first one on the left.</p>
-              ) : (
-                <div className="space-y-4">
-                  {data.map((t) => (
-                    <div key={t.id} className="rounded-lg border border-muted/40 p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium">
-                            {t.recipient_name || "Recipient"} • {t.to_bank_name || "Bank"}
-                          </p>
-                          <p className="text-sm text-muted-foreground">Acct: {t.to_account_number}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-semibold">${" "+Number(t.amount).toLocaleString()}</p>
-                          <div className="flex items-center justify-end gap-2">
-                            <Badge variant="secondary">{t.status}</Badge>
-                            {t.scheduled_date ? (
-                              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                                <Clock className="h-3 w-3" /> {new Date(t.scheduled_date).toLocaleDateString()}
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-                      </div>
-                      {t.description ? (
-                        <div className="mt-3 text-sm text-muted-foreground">{t.description}</div>
-                      ) : null}
-                      <Separator className="my-3" />
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>Ref: {t.reference || "—"}</span>
-                        <span>Created {new Date(t.created_at).toLocaleString()}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <div className="space-y-1">
+                <p className="text-2xl font-bold">{profile?.account_number || "Loading..."}</p>
+                <p className="text-xs text-muted-foreground">ThriftPay Account Number</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-muted/40">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Quick Transfer</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                className="w-full" 
+                onClick={() => setTransferModalOpen(true)}
+                disabled={!user?.id}
+              >
+                <Send className="mr-2 h-4 w-4" />
+                Send Money
+              </Button>
             </CardContent>
           </Card>
         </section>
+
+        {/* Enhanced Transfer History */}
+        <section className="mt-8">
+          <TransferHistory />
+        </section>
       </main>
+
+      <TransferModal
+        open={transferModalOpen}
+        onClose={() => setTransferModalOpen(false)}
+        onSuccess={() => {
+          refetch();
+          refetchProfile();
+          toast({
+            title: "Transfer completed",
+            description: "Your transfer has been processed successfully",
+          });
+        }}
+        userBalance={profile?.balance || 0}
+      />
     </div>
   );
 };
