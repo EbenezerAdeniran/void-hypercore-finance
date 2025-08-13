@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Navigation } from "@/components/ui/navigation";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { PaystackDepositModal } from "@/components/PaystackDepositModal";
 import {
   DollarSign,
   TrendingUp,
@@ -19,84 +20,66 @@ import {
   Banknote
 } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 const Dashboard = () => {
   const [balanceVisible, setBalanceVisible] = useState(true);
-  const [depositOpen, setDepositOpen] = useState(false);
-  const [depositAmount, setDepositAmount] = useState<string>("");
-  const [depositMethod, setDepositMethod] = useState<"bank_transfer" | "card" | "mobile_money">("bank_transfer");
-  const [depositResult, setDepositResult] = useState<any>(null);
+  const [depositModalOpen, setDepositModalOpen] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
 
-  const handleDepositSubmit = async () => {
-    const amountNum = Number(depositAmount);
-    if (!amountNum || amountNum <= 0) {
-      toast({ title: "Invalid amount", description: "Enter an amount greater than 0" });
-      return;
-    }
-    try {
-      const { data, error } = await supabase.functions.invoke('deposit', {
-        body: { amount: amountNum, method: depositMethod },
-      });
+  // Get user profile data for balance
+  const { data: profile } = useQuery({
+    queryKey: ["profile", user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("balance, full_name, account_number")
+        .eq("user_id", user.id)
+        .single();
       if (error) throw error;
-      setDepositResult(data);
-      toast({ title: "Deposit initialized", description: `Reference ${data?.reference || ''}` });
-    } catch (e: any) {
-      toast({ title: "Deposit failed", description: e?.message || 'Please try again' });
-    }
-  };
+      return data;
+    },
+    enabled: !!user,
+  });
 
   const { data: recentTransactions } = useQuery<any[]>({
-    queryKey: ['transactions', 'recent'],
+    queryKey: ['transactions', user?.id],
     queryFn: async () => {
+      if (!user) return [];
       const { data, error } = await supabase
         .from('transactions')
         .select('id, description, created_at, amount, type, category')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(5);
       if (error) throw error;
       return data ?? [];
     },
+    enabled: !!user,
   });
 
-  const { data: allTransactions } = useQuery<any[]>({
-    queryKey: ['transactions','all'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('amount, type');
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-
-  const totalBalance = useMemo(() => {
-    if (!allTransactions) return 0;
-    return allTransactions.reduce((sum: number, t: any) => {
-      const amt = typeof t.amount === 'number' ? t.amount : parseFloat(t.amount);
-      const type = (t.type ?? '').toLowerCase();
-      const isIncome = type === 'income' || type === 'credit';
-      return sum + (isIncome ? amt : -amt);
-    }, 0);
-  }, [allTransactions]);
+  // Use profile balance instead of calculating from transactions
+  const totalBalance = profile?.balance || 0;
 
   const { data: savingsGoals } = useQuery<any[]>({
-    queryKey: ['savings_goals'],
+    queryKey: ['savings_goals', user?.id],
     queryFn: async () => {
+      if (!user) return [];
       const { data, error } = await supabase
         .from('savings_goals')
-        .select('id, title, current_amount, target_amount, created_at, updated_at');
+        .select('id, title, current_amount, target_amount, created_at, updated_at')
+        .eq('user_id', user.id);
       if (error) throw error;
       return data ?? [];
     },
+    enabled: !!user,
   });
 
   const totalSavings = useMemo(() => {
@@ -118,14 +101,17 @@ const Dashboard = () => {
   const savingsPercent = totalSavingsTarget > 0 ? Math.min(100, (totalSavings / totalSavingsTarget) * 100) : 0;
 
   const { data: loans } = useQuery<any[]>({
-    queryKey: ['loans'],
+    queryKey: ['loans', user?.id],
     queryFn: async () => {
+      if (!user) return [];
       const { data, error } = await supabase
         .from('loans')
-        .select('id, status, amount');
+        .select('id, status, amount')
+        .eq('user_id', user.id);
       if (error) throw error;
       return data ?? [];
     },
+    enabled: !!user,
   });
 
   const activeLoansAmount = useMemo(() => {
@@ -179,7 +165,7 @@ const Dashboard = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-glow">
-                  {balanceVisible ? totalBalance.toLocaleString('en-US', { style: 'currency', currency: 'USD' }) : '••••••••'}
+                  {balanceVisible ? `₦${totalBalance.toLocaleString()}` : '••••••••'}
                 </div>
                 <div className="flex items-center space-x-2 text-sm text-success mt-2">
                   <ArrowUp className="h-4 w-4" />
@@ -195,10 +181,10 @@ const Dashboard = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-accent">
-                  {totalSavings.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                  ₦{totalSavings.toLocaleString()}
                 </div>
                 <Progress value={savingsPercent} className="mt-2" />
-                <p className="text-xs text-muted-foreground mt-2">{Math.round(savingsPercent)}% of {totalSavingsTarget.toLocaleString('en-US', { style: 'currency', currency: 'USD' })} total goals</p>
+                <p className="text-xs text-muted-foreground mt-2">{Math.round(savingsPercent)}% of ₦{totalSavingsTarget.toLocaleString()} total goals</p>
               </CardContent>
             </Card>
 
@@ -209,7 +195,7 @@ const Dashboard = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-warning">
-                  {activeLoansAmount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                  ₦{activeLoansAmount.toLocaleString()}
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">Active loans total</p>
               </CardContent>
@@ -228,7 +214,7 @@ const Dashboard = () => {
                   <Send className="h-6 w-6" />
                   <span>Send Money</span>
                 </Button>
-                <Button variant="outline" className="h-24 flex-col space-y-2" onClick={() => setDepositOpen(true)}>
+                <Button variant="outline" className="h-24 flex-col space-y-2" onClick={() => setDepositModalOpen(true)}>
                   <Wallet className="h-6 w-6" />
                   <span>Add Funds</span>
                 </Button>
@@ -276,8 +262,7 @@ const Dashboard = () => {
                           </div>
                           <div className="text-right">
                             <p className={`font-bold ${isCredit ? 'text-success' : 'text-destructive'}`}>
-                              {isCredit ? '+' : '-'}
-                              {Math.abs(amount).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                              {isCredit ? '+' : '-'}₦{Math.abs(amount).toLocaleString()}
                             </p>
                             <p className="text-xs text-muted-foreground">{tx.category}</p>
                           </div>
@@ -309,8 +294,7 @@ const Dashboard = () => {
                           <div className="flex justify-between text-sm">
                             <span>{g.title}</span>
                             <span>
-                              {current.toLocaleString('en-US', { style: 'currency', currency: 'USD' })} /{' '}
-                              {target.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+                              ₦{current.toLocaleString()} / ₦{target.toLocaleString()}
                             </span>
                           </div>
                           <Progress value={percent} className="h-2" />
@@ -331,6 +315,16 @@ const Dashboard = () => {
           </div>
         </div>
       </main>
+
+      <PaystackDepositModal 
+        open={depositModalOpen}
+        onClose={() => setDepositModalOpen(false)}
+        onSuccess={() => {
+          // Refetch user profile data
+          queryClient.invalidateQueries({ queryKey: ["profile", user?.id] });
+          queryClient.invalidateQueries({ queryKey: ["transactions", user?.id] });
+        }}
+      />
     </div>
   );
 };

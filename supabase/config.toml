@@ -3,3 +3,6 @@ project_id = "zqtndsrcpjfbtvlqjmze"
 # Public webhook for PSP callbacks
 [functions.deposit-webhook]
 verify_jwt = false
+
+[functions.paystack-webhook]
+verify_jwt = false
